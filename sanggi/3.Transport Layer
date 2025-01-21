@@ -1,0 +1,119 @@
+# TCP 정리
+
+## 1. TCP 특징
+- **Point to Point**: 하나의 송신자, 하나의 수신자  
+- **Reliable, In-Order Byte Stream**: 순서대로 처리되는 신뢰성 있는 바이트 스트림  
+- **Pipelined**: 한 번에 여러 개의 메시지 전송 가능  
+- **Full Duplex Data**: 양방향 통신 가능  
+- **Connection-Oriented**: 데이터 전송 전 송신자와 수신자의 연결 확인  
+- **Flow Controlled**: 상대방의 통신 상황에 따라 통신 속도 조절  
+
+---
+
+## 2. TCP 세그먼트 구조
+- **Segment 구성**: Header + Data  
+- **Sequence Numbers**: 각 세그먼트의 데이터 중 가장 첫 번째 바이트의 번호  
+- **Acknowledgements (ACK)**: 수신자가 기대하는 다음 바이트의 시퀀스 번호  
+  - **Cumulative ACK**: 이전까지의 데이터가 정상적으로 도착했음을 의미  
+
+---
+
+## 3. TCP Round Trip Time (RTT) 및 Time Out
+- **SampleRTT**: 세그먼트가 나갔다가 돌아오는 시간 (재전송 세그먼트 제외)  
+- **EstimatedRTT**:  
+  \[
+  \text{EstimatedRTT} = (1 - \alpha) \times \text{EstimatedRTT} + \alpha \times \text{SampleRTT}
+  \]
+  - 과거 샘플의 영향이 점진적으로 줄어듦 (α ≈ 0.125)  
+- **Timeout 값 설정**:  
+  \[
+  \text{Timeout} = \text{EstimatedRTT} + \text{Safety Margin}
+  \]
+
+---
+
+## 4. TCP 신뢰성 있는 데이터 전송 (Reliable Data Transfer)
+- **TCP는 IP 위에서 신뢰성 있는 rdt (Reliable Data Transfer) 제공**  
+- **Send Buffer & Receive Buffer 사용**:  
+  - 송신자가 데이터를 TCP에 전달하면 Send Buffer에 저장 후 송신  
+  - 수신자의 Receive Buffer로 전달되어 In-Order Delivery 구현  
+- **Window Size**:  
+  - 한 번 전송할 때 윈도우 크기만큼 전송  
+  - 수신자의 Receive Buffer로 이동  
+- **타이머 관리**:  
+  - 첫 번째 세그먼트에 타이머 설정  
+  - 수신자의 ACK를 받으면 해당 데이터 삭제 및 타이머 이동  
+
+---
+
+## 5. TCP Fast Retransmit (빠른 재전송)
+- 동일한 ACK가 **3번 반복**(총 4번 수신)이 감지되면 손실로 판단하고 즉시 재전송 수행  
+
+---
+
+## 6. TCP 흐름 제어 (Flow Control)
+- **Segment Header에 Receive Window (rwnd) 포함**  
+- **rwnd 값에 따라 송신자의 Send Buffer 크기 조절**  
+- **rwnd = 0일 때 Probe Packet 전송**:  
+  - 송신자는 1바이트 크기의 패킷을 보내서 수신자의 rwnd 상태 확인  
+
+---
+
+## 7. Silly Window Syndrome
+- **Segment 크기가 클수록 Overhead 감소 → 가급적 큰 세그먼트 사용**  
+- **AP에서 작은 데이터가 들어올 때 전략**:  
+  1. 첫 번째 Segment는 크기가 작아도 즉시 전송  
+  2. Receiver 응답을 대기하되, 최대 Segment Size (MSS)에 도달하면 전송  
+  3. 네트워크 상태가 좋다면 Overhead 증가 영향이 적음  
+- **Receiver는 효율적인 통신을 위해 ACK을 지연할 수 있음**  
+
+---
+
+## 8. TCP 연결 관리 (Connection Management)
+
+### **TCP 3-Way Handshake**
+1. **Client → Server**: 초기 Sequence 번호 설정 후 `SYN` 전송  
+2. **Server → Client**: `SYN + ACK` 전송  
+3. **Client → Server**: `ACK` 전송 후 연결 완료  
+
+### **TCP 연결 종료 (4-Way Handshake)**
+1. 송신자가 `FIN` 전송  
+2. 수신자가 `ACK` 응답  
+3. 수신자가 `FIN` 전송  
+4. 송신자가 `ACK` 응답 후 **TIME_WAIT** 상태에서 2MSL 동안 대기 후 종료  
+
+---
+
+## 9. TCP 혼잡 제어 (Congestion Control)
+- **혼잡 (Congestion)**: 네트워크가 처리할 수 있는 양보다 많은 데이터가 발생할 때  
+- **혼잡 발생 리스크**:  
+  - 라우터 혼잡 → 데이터 유실 → 재전송 증가 → 더 심한 혼잡 발생  
+- **Congestion Window (cwnd)**: 네트워크가 처리 가능한 데이터 양  
+
+### **TCP 혼잡 제어 알고리즘**
+- **Additive Increase, Multiplicative Decrease (AIMD)**
+  - **Loss 발생 전까지 cwnd 증가** (대역폭 탐색)  
+  - **Loss 발생 시 cwnd 절반 감소**  
+
+---
+
+## 10. TCP Slow Start
+- **초기 cwnd 증가 속도**  
+  - cwnd를 매 RTT마다 **2배씩 증가**  
+  - Loss 발생 시 **Multiplicative Decrease 적용**  
+- **Loss 발생 후 동작**  
+  - **Timeout 발생 시**: cwnd를 1 MSS로 리셋하고 Slow Start 다시 시작  
+  - **Triple Duplicate ACK 발생 시**: cwnd를 절반으로 줄이고 Congestion Avoidance로 전환  
+
+---
+
+## 11. TCP 처리량 (Throughput)
+- 네트워크 상황에 따라 조절되는 cwnd 기반  
+
+---
+
+## 12. TCP 공정성 (Fairness)
+- **목표**: 여러 세션이 네트워크 병목에서 경쟁할 때 공정하게 대역폭을 할당받는 것  
+- **하지만 완벽한 공평성을 보장하지 않음**:  
+  - RTT가 짧은 연결이 더 많은 대역폭을 차지할 가능성이 있음  
+- **TCP Reno 등의 AIMD 방식은 공정성을 어느 정도 보장**  
